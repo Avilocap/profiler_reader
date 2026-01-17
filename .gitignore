@@ -1,0 +1,5 @@
+# Profiler JSON files (too large)
+profiling_*.json
+
+# OS files
+.DS_Store

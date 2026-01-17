@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>React Profiler Visualizer</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="visualizer.css">
+</head>
+<body>
+    <div class="header">
+        <h1>React Profiler Visualizer</h1>
+        <p>Analiza y compara el rendimiento de tus componentes React</p>
+    </div>
+
+    <div class="file-loaders">
+        <div class="file-loader before" onclick="document.getElementById('file-before').click()">
+            <input type="file" id="file-before" accept=".json" onchange="loadFile(this, 'before')">
+            <h3>Antes (Sin Optimizar)</h3>
+            <p>Arrastra o haz clic para cargar el profiler</p>
+            <div class="status" id="status-before"></div>
+        </div>
+        <div class="file-loader after" onclick="document.getElementById('file-after').click()">
+            <input type="file" id="file-after" accept=".json" onchange="loadFile(this, 'after')">
+            <h3>Despues (Optimizado)</h3>
+            <p>Arrastra o haz clic para cargar el profiler</p>
+            <div class="status" id="status-after"></div>
+        </div>
+    </div>
+
+    <div class="tabs">
+        <div class="tab active" onclick="switchTab('overview')">Resumen</div>
+        <div class="tab" onclick="switchTab('components')">Componentes</div>
+        <div class="tab" onclick="switchTab('rerenders')">Re-renders</div>
+        <div class="tab" onclick="switchTab('timeline')">Timeline</div>
+        <div class="tab" onclick="switchTab('comparison')">Comparativa</div>
+    </div>
+
+    <div id="overview" class="content active">
+        <div class="empty-state" id="overview-empty">
+            <h3>Carga al menos un archivo de profiler</h3>
+            <p>Selecciona los archivos JSON exportados desde React DevTools</p>
+        </div>
+        <div id="overview-content" style="display: none;">
+            <div class="summary-grid" id="summary-grid"></div>
+            <div class="two-columns">
+                <div class="panel">
+                    <div class="panel-header">
+                        <h3>Distribucion de Tiempo por Commit</h3>
+                    </div>
+                    <div class="panel-body">
+                        <div class="chart-container">
+                            <canvas id="commitDurationChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div class="panel">
+                    <div class="panel-header">
+                        <h3>Razones de Re-render (Global)</h3>
+                    </div>
+                    <div class="panel-body">
+                        <div class="chart-container">
+                            <canvas id="rerenderReasonsChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="components" class="content">
+        <div class="empty-state" id="components-empty">
+            <h3>Carga al menos un archivo de profiler</h3>
+            <p>Podras ver que componentes se renderizan mas</p>
+        </div>
+        <div id="components-content" style="display: none;">
+            <div class="filter-bar">
+                <input type="text" id="component-filter" placeholder="Filtrar componentes..." oninput="filterComponents()">
+                <select id="component-sort" onchange="sortComponents()">
+                    <option value="renders">Ordenar por renders</option>
+                    <option value="duration">Ordenar por duracion</option>
+                    <option value="improvement">Ordenar por mejora</option>
+                    <option value="name">Ordenar por nombre</option>
+                </select>
+            </div>
+            <div class="panel">
+                <div class="panel-header">
+                    <h3>Top Componentes por Renderizados</h3>
+                    <span id="component-count"></span>
+                </div>
+                <div class="panel-body" id="components-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="rerenders" class="content">
+        <div class="empty-state" id="rerenders-empty">
+            <h3>Carga al menos un archivo de profiler</h3>
+            <p>Analiza las causas de los re-renders</p>
+        </div>
+        <div id="rerenders-content" style="display: none;">
+            <div class="filter-bar">
+                <input type="text" id="rerender-filter" placeholder="Filtrar componentes..." oninput="filterRerenders()">
+            </div>
+            <div class="panel">
+                <div class="panel-header">
+                    <h3>Componentes y sus Causas de Re-render</h3>
+                </div>
+                <div class="panel-body" id="rerenders-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="timeline" class="content">
+        <div class="empty-state" id="timeline-empty">
+            <h3>Carga al menos un archivo de profiler</h3>
+            <p>Visualiza el timeline de renderizado</p>
+        </div>
+        <div id="timeline-content" style="display: none;">
+            <div class="panel">
+                <div class="panel-header">
+                    <h3>Duracion de Commits en el Tiempo</h3>
+                </div>
+                <div class="panel-body">
+                    <div class="chart-container" style="height: 400px;">
+                        <canvas id="timelineChart"></canvas>
+                    </div>
+                    <div class="legend">
+                        <div class="legend-item">
+                            <div class="legend-color" style="background: #f85149;"></div>
+                            <span>Sin Optimizar</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color" style="background: #3fb950;"></div>
+                            <span>Optimizado</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="panel">
+                <div class="panel-header">
+                    <h3>Scheduling Events</h3>
+                </div>
+                <div class="panel-body" id="scheduling-events"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="comparison" class="content">
+        <div class="empty-state" id="comparison-empty">
+            <h3>Carga ambos archivos para comparar</h3>
+            <p>Necesitas el antes y el despues para ver la comparativa</p>
+        </div>
+        <div id="comparison-content" style="display: none;">
+            <div class="summary-grid" id="comparison-summary"></div>
+            <div class="panel">
+                <div class="panel-header">
+                    <h3>Mejora/Empeoramiento por Componente</h3>
+                </div>
+                <div class="panel-body">
+                    <table class="comparison-table">
+                        <thead>
+                            <tr>
+                                <th>Componente</th>
+                                <th>Renders Antes</th>
+                                <th>Renders Despues</th>
+                                <th>Diferencia</th>
+                                <th>% Cambio</th>
+                            </tr>
+                        </thead>
+                        <tbody id="comparison-table-body"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="visualizer.js"></script>
+</body>
+</html>
