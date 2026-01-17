@@ -584,6 +584,34 @@ function renderRerenders() {
     // Sort by max rerenders
     components.sort((a, b) => b.maxRerenders - a.maxRerenders);
 
+    // Merge paths from both datasets
+    const allPaths = new Map();
+    if (before?.componentPaths) {
+        for (const [name, paths] of before.componentPaths) {
+            if (!allPaths.has(name)) allPaths.set(name, new Set());
+            paths.forEach(p => allPaths.get(name).add(p));
+        }
+    }
+    if (after?.componentPaths) {
+        for (const [name, paths] of after.componentPaths) {
+            if (!allPaths.has(name)) allPaths.set(name, new Set());
+            paths.forEach(p => allPaths.get(name).add(p));
+        }
+    }
+
+    function getPathsHtml(name) {
+        const paths = allPaths.get(name);
+        if (!paths || paths.size === 0) return '';
+        const pathsArray = Array.from(paths).slice(0, 5);
+        return `
+            <div class="component-paths" id="paths-rerender-${escapeAttr(name)}" style="display: none;">
+                <div class="paths-header">Ubicaciones en el arbol:</div>
+                ${pathsArray.map(p => `<div class="path-item">${escapeHtml(p)}</div>`).join('')}
+                ${paths.size > 5 ? `<div class="paths-more">...y ${paths.size - 5} mas</div>` : ''}
+            </div>
+        `;
+    }
+
     const list = document.getElementById('rerenders-list');
 
     function renderBadges(causes) {
@@ -608,9 +636,16 @@ function renderRerenders() {
             </div>
             ${components.slice(0, 100).map(c => {
                 const diffClass = c.diff < 0 ? 'diff-positive' : c.diff > 0 ? 'diff-negative' : '';
+                const hasPaths = allPaths.has(c.name) && allPaths.get(c.name).size > 0;
                 return `
                 <div class="rerender-row-compare">
-                    <div class="component-name">${escapeHtml(c.name)}</div>
+                    <div class="component-name-wrapper">
+                        <div class="component-name ${hasPaths ? 'clickable' : ''}" ${hasPaths ? `onclick="togglePaths('rerender-${escapeAttr(c.name)}')"` : ''}>
+                            ${hasPaths ? '<span class="expand-icon">▶</span>' : ''}
+                            ${escapeHtml(c.name)}
+                        </div>
+                        ${getPathsHtml(c.name)}
+                    </div>
                     <div class="rerender-dual">
                         <div class="rerender-cell before">
                             <div class="rerender-count">${c.before.totalRerenders}</div>
@@ -637,17 +672,25 @@ function renderRerenders() {
         }
         singleComponents.sort((a, b) => b.totalRerenders - a.totalRerenders);
 
-        list.innerHTML = singleComponents.slice(0, 100).map(c => `
+        list.innerHTML = singleComponents.slice(0, 100).map(c => {
+            const hasPaths = allPaths.has(c.name) && allPaths.get(c.name).size > 0;
+            return `
             <div class="component-row" style="grid-template-columns: 1fr auto;">
                 <div>
-                    <div class="component-name">${escapeHtml(c.name)}</div>
+                    <div class="component-name-wrapper">
+                        <div class="component-name ${hasPaths ? 'clickable' : ''}" ${hasPaths ? `onclick="togglePaths('rerender-${escapeAttr(c.name)}')"` : ''}>
+                            ${hasPaths ? '<span class="expand-icon">▶</span>' : ''}
+                            ${escapeHtml(c.name)}
+                        </div>
+                        ${getPathsHtml(c.name)}
+                    </div>
                     <div style="margin-top: 8px;">
                         ${renderBadges(c.causes)}
                     </div>
                 </div>
                 <div class="stat-value" style="font-size: 1.2rem;">${c.totalRerenders}</div>
             </div>
-        `).join('');
+        `}).join('');
     }
 }
 
@@ -861,7 +904,7 @@ function togglePaths(componentName) {
     pathsEl.style.display = isVisible ? 'none' : 'block';
 
     // Toggle icon
-    const row = pathsEl.closest('.component-row-compare, .component-row-single');
+    const row = pathsEl.closest('.component-row-compare, .component-row-single, .rerender-row-compare, .component-row');
     if (row) {
         const icon = row.querySelector('.expand-icon');
         if (icon) {
