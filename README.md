@@ -1,6 +1,6 @@
 # React Profiler Visualizer
 
-> **Note**: This application was 100% created using [Claude Opus 4.5](https://www.anthropic.com/claude) via [Claude Code](https://docs.anthropic.com/en/docs/claude-code).
+> **Note**: This application was 100% created using Claude Opus 4.5 via Claude Code.
 
 A web-based tool to analyze and compare React DevTools profiler exports. Easily identify performance bottlenecks, excessive re-renders, and measure the impact of your optimizations.
 
