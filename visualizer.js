@@ -15,7 +15,7 @@ function loadFile(input, type) {
     if (!file) return;
 
     const statusEl = document.getElementById(`status-${type}`);
-    statusEl.textContent = 'Cargando...';
+    statusEl.textContent = 'Loading...';
 
     const reader = new FileReader();
     reader.onload = function (e) {
@@ -25,11 +25,11 @@ function loadFile(input, type) {
 
             const loader = input.closest('.file-loader');
             loader.classList.add('loaded');
-            statusEl.textContent = `Cargado: ${file.name}`;
+            statusEl.textContent = `Loaded: ${file.name}`;
 
             updateUI();
         } catch (error) {
-            statusEl.textContent = 'Error al parsear JSON';
+            statusEl.textContent = 'Error parsing JSON';
             console.error(error);
         }
     };
@@ -40,13 +40,13 @@ function processProfilerData(rawData) {
     const root = rawData.dataForRoots[0];
     const timeline = rawData.timelineData?.[0];
 
-    // Crear mapa de snapshots (id -> info del componente)
+    // Create snapshot map (id -> component info)
     const snapshotMap = new Map();
     for (const [id, info] of root.snapshots) {
         snapshotMap.set(id, info);
     }
 
-    // Construir mapa de padres (child_id -> parent_id) para jerarquía
+    // Build parent map (child_id -> parent_id) for hierarchy
     const parentMap = new Map();
     for (const [id, info] of root.snapshots) {
         if (info.children) {
@@ -56,7 +56,7 @@ function processProfilerData(rawData) {
         }
     }
 
-    // Función para obtener el path completo de un componente
+    // Function to get the full path of a component
     function getComponentPath(componentId, maxDepth = 15) {
         const path = [];
         let current = componentId;
@@ -72,7 +72,7 @@ function processProfilerData(rawData) {
         return path.reverse();
     }
 
-    // Mapa de nombre -> paths (un componente puede aparecer en varios lugares)
+    // Map of name -> paths (a component can appear in multiple places)
     const componentPaths = new Map();
     for (const [id, info] of root.snapshots) {
         if (info.displayName) {
@@ -90,7 +90,7 @@ function processProfilerData(rawData) {
         }
     }
 
-    // Procesar component measures para conteo de renders
+    // Process component measures for render count
     const componentStats = new Map();
 
     if (timeline?.componentMeasures) {
@@ -114,7 +114,7 @@ function processProfilerData(rawData) {
         }
     }
 
-    // Procesar causas de re-render desde commitData
+    // Process re-render causes from commitData
     const rerenderCauses = new Map();
     const globalCauses = {
         hooks: 0,
@@ -245,13 +245,13 @@ function renderOverview() {
             compare: other?.totalRenders
         },
         {
-            label: 'Duracion Total',
+            label: 'Total Duration',
             value: `${current.totalDuration.toFixed(1)}ms`,
             compare: other ? `${other.totalDuration.toFixed(1)}ms` : null,
             numCompare: other?.totalDuration
         },
         {
-            label: 'Componentes Unicos',
+            label: 'Unique Components',
             value: current.componentStats.length,
             compare: other?.componentStats.length
         },
@@ -275,7 +275,7 @@ function renderOverview() {
                 const diff = ((currentNum - otherNum) / otherNum * 100).toFixed(1);
                 const isBetter = currentNum < otherNum;
                 comparisonHtml = `<div class="comparison ${isBetter ? 'better' : 'worse'}">
-                    ${isBetter ? '↓' : '↑'} ${Math.abs(diff)}% vs anterior
+                    ${isBetter ? '↓' : '↑'} ${Math.abs(diff)}% vs before
                 </div>`;
             }
         }
@@ -308,7 +308,7 @@ function renderCommitDurationChart(data) {
         data: {
             labels: data.commits.map((_, i) => `#${i + 1}`),
             datasets: [{
-                label: 'Duracion (ms)',
+                label: 'Duration (ms)',
                 data: data.commits.map(c => c.duration),
                 backgroundColor: 'rgba(88, 166, 255, 0.7)',
                 borderColor: 'rgba(88, 166, 255, 1)',
@@ -436,19 +436,19 @@ function renderComponents() {
         }
     }
 
-    document.getElementById('component-count').textContent = `${components.length} componentes`;
+    document.getElementById('component-count').textContent = `${components.length} components`;
 
     const list = document.getElementById('components-list');
 
     function getPathsHtml(name) {
         const paths = allPaths.get(name);
         if (!paths || paths.size === 0) return '';
-        const pathsArray = Array.from(paths).slice(0, 5); // Limitar a 5 paths
+        const pathsArray = Array.from(paths).slice(0, 5); // Limit to 5 paths
         return `
             <div class="component-paths" id="paths-${escapeAttr(name)}" style="display: none;">
-                <div class="paths-header">Ubicaciones en el arbol:</div>
+                <div class="paths-header">Locations in tree:</div>
                 ${pathsArray.map(p => `<div class="path-item">${escapeHtml(p)}</div>`).join('')}
-                ${paths.size > 5 ? `<div class="paths-more">...y ${paths.size - 5} mas</div>` : ''}
+                ${paths.size > 5 ? `<div class="paths-more">...and ${paths.size - 5} more</div>` : ''}
             </div>
         `;
     }
@@ -456,12 +456,12 @@ function renderComponents() {
     if (hasBoth) {
         list.innerHTML = `
             <div class="component-row-compare header-row">
-                <div>Componente</div>
+                <div>Component</div>
                 <div class="dual-column">
-                    <span class="label-before">Sin Optimizar</span>
-                    <span class="label-after">Optimizado</span>
+                    <span class="label-before">Non-optimized</span>
+                    <span class="label-after">Optimized</span>
                 </div>
-                <div>Diferencia</div>
+                <div>Difference</div>
             </div>
             ${components.slice(0, 100).map(c => {
                 const diffClass = c.diff < 0 ? 'diff-positive' : c.diff > 0 ? 'diff-negative' : '';
@@ -516,9 +516,9 @@ function renderComponents() {
 
         list.innerHTML = `
             <div class="component-row-single header-row">
-                <div>Componente</div>
+                <div>Component</div>
                 <div>Renders</div>
-                <div>Duracion</div>
+                <div>Duration</div>
             </div>
             ${dataComponents.slice(0, 100).map(c => {
                 const hasPaths = allPaths.has(c.name) && allPaths.get(c.name).size > 0;
@@ -605,9 +605,9 @@ function renderRerenders() {
         const pathsArray = Array.from(paths).slice(0, 5);
         return `
             <div class="component-paths" id="paths-rerender-${escapeAttr(name)}" style="display: none;">
-                <div class="paths-header">Ubicaciones en el arbol:</div>
+                <div class="paths-header">Locations in tree:</div>
                 ${pathsArray.map(p => `<div class="path-item">${escapeHtml(p)}</div>`).join('')}
-                ${paths.size > 5 ? `<div class="paths-more">...y ${paths.size - 5} mas</div>` : ''}
+                ${paths.size > 5 ? `<div class="paths-more">...and ${paths.size - 5} more</div>` : ''}
             </div>
         `;
     }
@@ -627,10 +627,10 @@ function renderRerenders() {
     if (hasBoth) {
         list.innerHTML = `
             <div class="rerender-row-compare header-row">
-                <div>Componente</div>
+                <div>Component</div>
                 <div class="rerender-dual">
-                    <span class="label-before">Sin Optimizar</span>
-                    <span class="label-after">Optimizado</span>
+                    <span class="label-before">Non-optimized</span>
+                    <span class="label-after">Optimized</span>
                 </div>
                 <div>Diff</div>
             </div>
@@ -709,7 +709,7 @@ function renderTimeline() {
 
     if (processedData.before) {
         datasets.push({
-            label: 'Sin Optimizar',
+            label: 'Non-optimized',
             data: processedData.before.commits.map(c => ({ x: c.timestamp, y: c.duration })),
             borderColor: 'rgba(248, 81, 73, 1)',
             backgroundColor: 'rgba(248, 81, 73, 0.1)',
@@ -720,7 +720,7 @@ function renderTimeline() {
 
     if (processedData.after) {
         datasets.push({
-            label: 'Optimizado',
+            label: 'Optimized',
             data: processedData.after.commits.map(c => ({ x: c.timestamp, y: c.duration })),
             borderColor: 'rgba(63, 185, 80, 1)',
             backgroundColor: 'rgba(63, 185, 80, 0.1)',
@@ -758,7 +758,7 @@ function renderTimeline() {
                 y: {
                     title: {
                         display: true,
-                        text: 'Duracion (ms)',
+                        text: 'Duration (ms)',
                         color: '#8b949e'
                     },
                     grid: { color: 'rgba(255,255,255,0.1)' },
@@ -809,32 +809,32 @@ function renderComparison() {
 
     summaryGrid.innerHTML = `
         <div class="summary-card">
-            <h4>Reduccion de Renders</h4>
+            <h4>Render Reduction</h4>
             <div class="value ${parseFloat(totalRendersDiff) < 0 ? 'diff-positive' : 'diff-negative'}">
                 ${totalRendersDiff}%
             </div>
             <div class="comparison">${before.totalRenders} -> ${after.totalRenders}</div>
         </div>
         <div class="summary-card">
-            <h4>Cambio en Duracion</h4>
+            <h4>Duration Change</h4>
             <div class="value ${parseFloat(durationDiff) < 0 ? 'diff-positive' : 'diff-negative'}">
                 ${durationDiff}%
             </div>
             <div class="comparison">${before.totalDuration.toFixed(1)}ms -> ${after.totalDuration.toFixed(1)}ms</div>
         </div>
         <div class="summary-card">
-            <h4>Cambio en Commits</h4>
+            <h4>Commits Change</h4>
             <div class="value ${parseFloat(commitsDiff) < 0 ? 'diff-positive' : 'diff-negative'}">
                 ${commitsDiff}%
             </div>
             <div class="comparison">${before.totalCommits} -> ${after.totalCommits}</div>
         </div>
         <div class="summary-card">
-            <h4>Renders Evitados</h4>
+            <h4>Renders Saved</h4>
             <div class="value diff-positive">
                 ${Math.max(0, before.totalRenders - after.totalRenders)}
             </div>
-            <div class="comparison">menos renderizados</div>
+            <div class="comparison">fewer renders</div>
         </div>
     `;
 
