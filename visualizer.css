@@ -661,6 +661,69 @@ body {
     font-style: italic;
 }
 
+/* Buttons */
+.button-group {
+    display: flex;
+    gap: 10px;
+}
+
+.btn {
+    padding: 8px 16px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+
+.btn-primary {
+    background: var(--accent-blue);
+    color: white;
+}
+
+.btn-primary:hover {
+    background: #4a90e2;
+}
+
+.btn-secondary {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+}
+
+.btn-secondary:hover {
+    background: var(--border-color);
+}
+
+/* LLM Summary */
+.markdown-preview {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 20px;
+    font-family: 'SF Mono', Consolas, monospace;
+    font-size: 0.85rem;
+    line-height: 1.6;
+    color: var(--text-primary);
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    max-height: 600px;
+    overflow-y: auto;
+}
+
+.copy-success {
+    color: var(--accent-green);
+    font-size: 0.85rem;
+    margin-left: 10px;
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+
+.copy-success.show {
+    opacity: 1;
+}
+
 @media (max-width: 768px) {
     .file-loaders {
         grid-template-columns: 1fr;

@@ -215,11 +215,16 @@ function updateUI() {
     document.getElementById('comparison-empty').style.display = hasBoth ? 'none' : 'block';
     document.getElementById('comparison-content').style.display = hasBoth ? 'block' : 'none';
 
+    // LLM Summary
+    document.getElementById('llm-summary-empty').style.display = hasData ? 'none' : 'block';
+    document.getElementById('llm-summary-content').style.display = hasData ? 'block' : 'none';
+
     if (hasData) {
         renderOverview();
         renderComponents();
         renderRerenders();
         renderTimeline();
+        renderLLMSummary();
     }
 
     if (hasBoth) {
@@ -911,6 +916,237 @@ function togglePaths(componentName) {
             icon.textContent = isVisible ? '▶' : '▼';
         }
     }
+}
+
+function renderLLMSummary() {
+    const markdown = generateLLMMarkdown();
+    document.getElementById('llm-summary-text').textContent = markdown;
+}
+
+function generateLLMMarkdown() {
+    const before = processedData.before;
+    const after = processedData.after;
+    const hasBoth = before && after;
+
+    let md = `# React Profiler Analysis Report\n\n`;
+    md += `*Generated on ${new Date().toISOString().split('T')[0]}*\n\n`;
+
+    // Overview section
+    md += `## Overview\n\n`;
+
+    if (hasBoth) {
+        md += `This report compares two React profiler sessions: **before** and **after** optimization.\n\n`;
+        md += `| Metric | Before | After | Change |\n`;
+        md += `|--------|--------|-------|--------|\n`;
+        md += `| Total Commits | ${before.totalCommits} | ${after.totalCommits} | ${((after.totalCommits - before.totalCommits) / before.totalCommits * 100).toFixed(1)}% |\n`;
+        md += `| Total Renders | ${before.totalRenders} | ${after.totalRenders} | ${((after.totalRenders - before.totalRenders) / before.totalRenders * 100).toFixed(1)}% |\n`;
+        md += `| Total Duration | ${before.totalDuration.toFixed(1)}ms | ${after.totalDuration.toFixed(1)}ms | ${((after.totalDuration - before.totalDuration) / before.totalDuration * 100).toFixed(1)}% |\n`;
+        md += `| Unique Components | ${before.componentStats.length} | ${after.componentStats.length} | - |\n\n`;
+    } else {
+        const current = after || before;
+        const label = after ? 'Optimized' : 'Non-optimized';
+        md += `This report analyzes the **${label}** profiler session.\n\n`;
+        md += `| Metric | Value |\n`;
+        md += `|--------|-------|\n`;
+        md += `| Total Commits | ${current.totalCommits} |\n`;
+        md += `| Total Renders | ${current.totalRenders} |\n`;
+        md += `| Total Duration | ${current.totalDuration.toFixed(1)}ms |\n`;
+        md += `| Unique Components | ${current.componentStats.length} |\n\n`;
+    }
+
+    // Top components by render count
+    md += `## Top Components by Render Count\n\n`;
+
+    if (hasBoth) {
+        const beforeMap = new Map(before.componentStats.map(c => [c.name, c]));
+        const afterMap = new Map(after.componentStats.map(c => [c.name, c]));
+        const allNames = new Set([...beforeMap.keys(), ...afterMap.keys()]);
+
+        let components = Array.from(allNames).map(name => {
+            const b = beforeMap.get(name) || { renderCount: 0, totalDuration: 0 };
+            const a = afterMap.get(name) || { renderCount: 0, totalDuration: 0 };
+            return {
+                name,
+                beforeRenders: b.renderCount,
+                afterRenders: a.renderCount,
+                diff: a.renderCount - b.renderCount,
+                maxRenders: Math.max(b.renderCount, a.renderCount)
+            };
+        });
+
+        components.sort((a, b) => b.maxRenders - a.maxRenders);
+
+        md += `| Component | Before | After | Change |\n`;
+        md += `|-----------|--------|-------|--------|\n`;
+        components.slice(0, 20).forEach(c => {
+            const changeStr = c.diff === 0 ? '0' : (c.diff > 0 ? `+${c.diff}` : `${c.diff}`);
+            md += `| ${c.name} | ${c.beforeRenders} | ${c.afterRenders} | ${changeStr} |\n`;
+        });
+        md += `\n`;
+    } else {
+        const current = after || before;
+        const sorted = [...current.componentStats].sort((a, b) => b.renderCount - a.renderCount);
+
+        md += `| Component | Renders | Duration |\n`;
+        md += `|-----------|---------|----------|\n`;
+        sorted.slice(0, 20).forEach(c => {
+            md += `| ${c.name} | ${c.renderCount} | ${c.totalDuration.toFixed(1)}ms |\n`;
+        });
+        md += `\n`;
+    }
+
+    // Most improved components (if comparing)
+    if (hasBoth) {
+        md += `## Most Improved Components\n\n`;
+        md += `Components with the biggest reduction in renders:\n\n`;
+
+        const beforeMap = new Map(before.componentStats.map(c => [c.name, c]));
+        const afterMap = new Map(after.componentStats.map(c => [c.name, c]));
+
+        let improvements = Array.from(beforeMap.keys())
+            .filter(name => afterMap.has(name))
+            .map(name => {
+                const b = beforeMap.get(name);
+                const a = afterMap.get(name);
+                return {
+                    name,
+                    before: b.renderCount,
+                    after: a.renderCount,
+                    saved: b.renderCount - a.renderCount,
+                    percent: ((b.renderCount - a.renderCount) / b.renderCount * 100)
+                };
+            })
+            .filter(c => c.saved > 0)
+            .sort((a, b) => b.saved - a.saved);
+
+        if (improvements.length > 0) {
+            md += `| Component | Before | After | Saved | % Reduction |\n`;
+            md += `|-----------|--------|-------|-------|-------------|\n`;
+            improvements.slice(0, 15).forEach(c => {
+                md += `| ${c.name} | ${c.before} | ${c.after} | ${c.saved} | ${c.percent.toFixed(1)}% |\n`;
+            });
+            md += `\n`;
+        } else {
+            md += `No components showed improvement.\n\n`;
+        }
+
+        // Regressions
+        let regressions = Array.from(afterMap.keys())
+            .map(name => {
+                const b = beforeMap.get(name) || { renderCount: 0 };
+                const a = afterMap.get(name);
+                return {
+                    name,
+                    before: b.renderCount,
+                    after: a.renderCount,
+                    increase: a.renderCount - b.renderCount
+                };
+            })
+            .filter(c => c.increase > 0)
+            .sort((a, b) => b.increase - a.increase);
+
+        if (regressions.length > 0) {
+            md += `## Components with Increased Renders (Regressions)\n\n`;
+            md += `| Component | Before | After | Increase |\n`;
+            md += `|-----------|--------|-------|----------|\n`;
+            regressions.slice(0, 10).forEach(c => {
+                md += `| ${c.name} | ${c.before} | ${c.after} | +${c.increase} |\n`;
+            });
+            md += `\n`;
+        }
+    }
+
+    // Re-render causes
+    md += `## Re-render Causes Analysis\n\n`;
+
+    const current = after || before;
+    const causes = current.globalCauses;
+    const totalCauses = causes.hooks + causes.props + causes.state + causes.context + causes.mount;
+
+    if (totalCauses > 0) {
+        md += `| Cause | Count | Percentage |\n`;
+        md += `|-------|-------|------------|\n`;
+        if (causes.hooks > 0) md += `| Hooks | ${causes.hooks} | ${(causes.hooks / totalCauses * 100).toFixed(1)}% |\n`;
+        if (causes.props > 0) md += `| Props | ${causes.props} | ${(causes.props / totalCauses * 100).toFixed(1)}% |\n`;
+        if (causes.state > 0) md += `| State | ${causes.state} | ${(causes.state / totalCauses * 100).toFixed(1)}% |\n`;
+        if (causes.context > 0) md += `| Context | ${causes.context} | ${(causes.context / totalCauses * 100).toFixed(1)}% |\n`;
+        if (causes.mount > 0) md += `| Mount | ${causes.mount} | ${(causes.mount / totalCauses * 100).toFixed(1)}% |\n`;
+        md += `\n`;
+    }
+
+    // Top components by re-render causes
+    md += `### Components with Most Re-renders by Cause\n\n`;
+
+    const rerenderData = current.rerenderCauses
+        .filter(c => c.totalRerenders > 0)
+        .sort((a, b) => b.totalRerenders - a.totalRerenders)
+        .slice(0, 15);
+
+    if (rerenderData.length > 0) {
+        md += `| Component | Total | Hooks | Props | State | Context | Mount |\n`;
+        md += `|-----------|-------|-------|-------|-------|---------|-------|\n`;
+        rerenderData.forEach(c => {
+            md += `| ${c.name} | ${c.totalRerenders} | ${c.causes.hooks} | ${c.causes.props} | ${c.causes.state} | ${c.causes.context} | ${c.causes.mount} |\n`;
+        });
+        md += `\n`;
+    }
+
+    // Summary and recommendations
+    md += `## Summary\n\n`;
+
+    if (hasBoth) {
+        const renderReduction = before.totalRenders - after.totalRenders;
+        const durationReduction = before.totalDuration - after.totalDuration;
+
+        if (renderReduction > 0) {
+            md += `- **${renderReduction} fewer renders** (${(renderReduction / before.totalRenders * 100).toFixed(1)}% reduction)\n`;
+        } else if (renderReduction < 0) {
+            md += `- **${Math.abs(renderReduction)} more renders** (${(Math.abs(renderReduction) / before.totalRenders * 100).toFixed(1)}% increase)\n`;
+        }
+
+        if (durationReduction > 0) {
+            md += `- **${durationReduction.toFixed(1)}ms faster** (${(durationReduction / before.totalDuration * 100).toFixed(1)}% improvement)\n`;
+        } else if (durationReduction < 0) {
+            md += `- **${Math.abs(durationReduction).toFixed(1)}ms slower** (${(Math.abs(durationReduction) / before.totalDuration * 100).toFixed(1)}% regression)\n`;
+        }
+    }
+
+    // Main causes hint
+    const mainCause = Object.entries(causes).sort((a, b) => b[1] - a[1])[0];
+    if (mainCause && mainCause[1] > 0) {
+        md += `- Main re-render trigger: **${mainCause[0]}** (${mainCause[1]} occurrences)\n`;
+    }
+
+    md += `\n---\n*Use this data to identify optimization opportunities in your React application.*\n`;
+
+    return md;
+}
+
+function copyLLMSummary() {
+    const text = document.getElementById('llm-summary-text').textContent;
+    navigator.clipboard.writeText(text).then(() => {
+        const btn = document.querySelector('.btn-primary');
+        const originalText = btn.textContent;
+        btn.textContent = 'Copied!';
+        btn.style.background = 'var(--accent-green)';
+        setTimeout(() => {
+            btn.textContent = originalText;
+            btn.style.background = '';
+        }, 2000);
+    });
+}
+
+function downloadLLMSummary() {
+    const text = document.getElementById('llm-summary-text').textContent;
+    const blob = new Blob([text], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `react-profiler-analysis-${new Date().toISOString().split('T')[0]}.md`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
 }
 
 // Initialize drag and drop on DOM ready

@@ -34,6 +34,7 @@
         <div class="tab" onclick="switchTab('rerenders')">Re-renders</div>
         <div class="tab" onclick="switchTab('timeline')">Timeline</div>
         <div class="tab" onclick="switchTab('comparison')">Comparison</div>
+        <div class="tab" onclick="switchTab('llm-summary')">Summary for LLM</div>
     </div>
 
     <div id="overview" class="content active">
@@ -170,6 +171,27 @@
                         </thead>
                         <tbody id="comparison-table-body"></tbody>
                     </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="llm-summary" class="content">
+        <div class="empty-state" id="llm-summary-empty">
+            <h3>Load at least one profiler file</h3>
+            <p>Generate a summary to share with an AI assistant</p>
+        </div>
+        <div id="llm-summary-content" style="display: none;">
+            <div class="panel">
+                <div class="panel-header">
+                    <h3>Summary for LLM</h3>
+                    <div class="button-group">
+                        <button class="btn btn-primary" onclick="copyLLMSummary()">Copy to Clipboard</button>
+                        <button class="btn btn-secondary" onclick="downloadLLMSummary()">Download .md</button>
+                    </div>
+                </div>
+                <div class="panel-body">
+                    <pre id="llm-summary-text" class="markdown-preview"></pre>
                 </div>
             </div>
         </div>
